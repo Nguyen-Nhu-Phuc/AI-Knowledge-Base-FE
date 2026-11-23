@@ -1,0 +1,334 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Clean paper canvas — solid surfaces, clear type */
+  --background: #f1f3f5;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --muted: #334155;
+  --border: #d0d7e0;
+  /* Accent scale (overridden by personal theme prefs) */
+  --accent-50: #f0fdfa;
+  --accent-100: #ccfbf1;
+  --accent-200: #99f6e4;
+  --accent-300: #5eead4;
+  --accent-400: #2dd4bf;
+  --accent-500: #14b8a6;
+  --accent-600: #0d9488;
+  --accent-700: #0f766e;
+  --accent-800: #115e59;
+  --accent-900: #134e4a;
+  --accent-950: #042f2e;
+  --ring: var(--accent-600);
+  --accent: var(--accent-700);
+  --accent-strong: var(--accent-800);
+  /* 3-color theme tokens (overridden by personal prefs) */
+  --theme-primary: #0d9488;
+  --theme-secondary: #2dd4bf;
+  --theme-tertiary: #115e59;
+  --panel-from: var(--theme-tertiary);
+  --panel-to: var(--theme-secondary);
+  --grid-line: rgba(15, 23, 42, 0.05);
+  --ask-shadow: 0 8px 28px -14px rgba(15, 23, 42, 0.18);
+  --canvas-glow: color-mix(in srgb, var(--theme-secondary) 14%, transparent);
+  --canvas-fade: #e4e7eb;
+  /* Soft accent fill — solid, works without Tailwind opacity+CSS-var bugs */
+  --accent-soft: var(--accent-100);
+  --accent-soft-fg: var(--accent-900);
+}
+
+.dark {
+  /* Higher contrast dark: brighter type, clearer borders */
+  --background: #0a0e13;
+  --foreground: #f8fafc;
+  --surface: #151b24;
+  --surface-elevated: #1c2430;
+  --muted: #cbd5e1;
+  --border: #3d4b5c;
+  --ring: var(--accent-300);
+  --accent: var(--accent-300);
+  --accent-strong: var(--accent-200);
+  --panel-from: var(--theme-tertiary);
+  --panel-to: var(--theme-secondary);
+  --grid-line: rgba(248, 250, 252, 0.04);
+  --ask-shadow: 0 10px 32px -16px rgba(0, 0, 0, 0.55);
+  --canvas-glow: color-mix(in srgb, var(--theme-secondary) 12%, transparent);
+  --canvas-fade: #0d1218;
+  --accent-soft: color-mix(in srgb, var(--accent-400) 28%, #1c2430);
+  --accent-soft-fg: #f8fafc;
+}
+
+html,
+body {
+  min-height: 100%;
+  min-height: 100dvh;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Safe areas (notch / home indicator) */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --mobile-nav-h: 3.75rem;
+  /* Shell geometry — keep top borders aligned */
+  --app-topbar-h: 3.5rem;
+  --app-sidebar-w: 260px;
+  --app-sidebar-w-collapsed: 72px;
+  --app-page-max: 1200px;
+  --app-main-pad-x: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --app-main-pad-x: 1.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-main-pad-x: 2rem;
+  }
+}
+
+.app-page {
+  width: 100%;
+  max-width: var(--app-page-max);
+  margin-inline: auto;
+}
+
+.safe-pb {
+  padding-bottom: calc(var(--mobile-nav-h) + var(--safe-bottom) + 0.75rem);
+}
+
+.safe-bottom-nav {
+  padding-bottom: max(0.35rem, var(--safe-bottom));
+  padding-left: max(0.25rem, var(--safe-left));
+  padding-right: max(0.25rem, var(--safe-right));
+}
+
+/* Tables → horizontal scroll on small screens */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll > table {
+  min-width: 640px;
+}
+
+@media (max-width: 639px) {
+  .stack-sm {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .hide-sm {
+    display: none !important;
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--foreground);
+}
+
+.app-canvas {
+  background:
+    radial-gradient(880px 400px at 50% -10%, var(--canvas-glow), transparent 58%),
+    linear-gradient(180deg, var(--background) 0%, var(--canvas-fade) 100%);
+}
+
+.app-canvas::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.45;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black 18%, transparent 65%);
+}
+
+.dark .app-canvas::before {
+  opacity: 0.35;
+}
+
+.auth-panel {
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--panel-from) 90%, black), var(--panel-to)),
+    radial-gradient(700px 360px at 15% 15%, rgba(255, 255, 255, 0.12), transparent 55%);
+}
+
+.auth-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 42px 42px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.surface-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+.dark .surface-panel {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.ask-bar {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  box-shadow: var(--ask-shadow);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.ask-bar:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    var(--ask-shadow);
+}
+
+.page-enter {
+  animation: fade-up 0.4s ease-out both;
+}
+
+.nav-item {
+  position: relative;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.nav-item[data-active="true"] {
+  background: var(--accent-soft) !important;
+  color: var(--accent-soft-fg) !important;
+}
+
+.nav-item[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 2.5px;
+  border-radius: 999px;
+  background: var(--accent-700);
+}
+
+.dark .nav-item[data-active="true"]::before {
+  background: var(--accent-300);
+}
+
+.accent-soft {
+  background: var(--accent-soft);
+  color: var(--accent-soft-fg);
+}
+
+/* Theme brand strip (optional chrome — hidden by default in shell) */
+.theme-brand-strip {
+  display: none;
+}
+
+.theme-secondary-dot {
+  background: var(--theme-secondary);
+}
+
+.theme-tertiary-dot {
+  background: var(--theme-tertiary);
+}
+
+.theme-swatch-primary {
+  background-color: var(--theme-primary) !important;
+}
+.theme-swatch-secondary {
+  background-color: var(--theme-secondary) !important;
+}
+.theme-swatch-tertiary {
+  background-color: var(--theme-tertiary) !important;
+}
+
+.chat-bubble-user {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-elevated));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.dark .chat-bubble-user {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-elevated));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+.chat-bubble-assistant {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+}
+
+.cite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0.1rem 0.45rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.dark .cite-chip {
+  background: var(--surface-elevated);
+  color: #e2e8f0;
+}
+
+.prose-chat {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .nav-item[data-active="true"]::before {
+    animation: none !important;
+  }
+}
