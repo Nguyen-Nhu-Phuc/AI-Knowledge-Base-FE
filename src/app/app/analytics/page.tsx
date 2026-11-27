@@ -8,7 +8,7 @@ import { useAnalytics, useOrgId, useUsage } from "@/lib/hooks";
 import { api, ApiError } from "@/lib/api";
 import { useCanViewAnalytics } from "@/lib/org-role";
 import { labelStatus } from "@/lib/i18n-labels";
-import { toast } from "@/components/feedback";
+import { confirmDialog, toast } from "@/components/feedback";
 
 type AuditRow = {
   id: string;
@@ -202,6 +202,12 @@ export default function AnalyticsPage() {
               disabled={evalBusy}
               onClick={async () => {
                 if (!orgId) return;
+                const ok = await confirmDialog({
+                  title: t("feedback.runEvalTitle"),
+                  description: t("feedback.runEvalDesc"),
+                  confirmLabel: t("analytics.runEval"),
+                });
+                if (!ok) return;
                 setEvalBusy(true);
                 try {
                   const run = await api<EvalRow>(

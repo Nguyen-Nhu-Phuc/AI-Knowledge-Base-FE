@@ -6,12 +6,18 @@ import { useEffect, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { ConfirmDialogHost, Toaster } from "@/components/feedback";
 import { ThemePrefsProvider } from "@/components/theme-prefs-provider";
-import { detectStoredLocale, initI18n, setAppLocale } from "@/i18n/config";
+import { detectStoredLocale, getClientI18n, setAppLocale } from "@/i18n/config";
+import type { AppLocale } from "@/i18n/locale";
 import { rehydrateAuthStore, useAuthStore } from "@/stores/auth-store";
 
-const i18n = initI18n();
-
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  locale,
+}: {
+  children: React.ReactNode;
+  /** From cookie on the server — must match first client render. */
+  locale: AppLocale;
+}) {
   const [client] = useState(
     () =>
       new QueryClient({
@@ -24,10 +30,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+  const [i18n] = useState(() => getClientI18n(locale));
 
   useEffect(() => {
-    // Apply preferred locale only after mount (avoids hydration mismatch).
-    void setAppLocale(detectStoredLocale());
+    // After hydration: apply saved preference (updates cookie for next SSR).
+    const preferred = detectStoredLocale();
+    if (preferred !== locale) {
+      void setAppLocale(preferred);
+    } else {
+      writeCookieOnly(preferred);
+    }
 
     const persistApi = useAuthStore.persist;
     const unsub = persistApi?.onFinishHydration(() => {
@@ -43,7 +55,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       unsub?.();
       window.clearTimeout(t);
     };
-  }, []);
+  }, [locale]);
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -63,4 +75,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       </ThemeProvider>
     </I18nextProvider>
   );
+}
+
+function writeCookieOnly(locale: AppLocale) {
+  document.cookie = `akb-locale=${locale};path=/;max-age=31536000;samesite=lax`;
+  document.documentElement.lang = locale;
 }

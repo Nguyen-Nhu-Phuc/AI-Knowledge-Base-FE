@@ -3,11 +3,25 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, Upload } from "@/components/icons";
+import { BackLink } from "@/components/back-link";
+import {
+  DocumentPreviewDialog,
+  type DocumentPreviewPayload,
+} from "@/components/document-preview-dialog";
+import {
+  Eye,
+  ListDetails,
+  RotateCcw,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+} from "@/components/icons";
+import { FileDropzone, FileDropzoneCompact } from "@/components/file-dropzone";
+import { SideSheet } from "@/components/side-sheet";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,7 +34,7 @@ import {
   useOrgId,
   useUpdateKb,
 } from "@/lib/hooks";
-import { formatBytes, formatDate } from "@/lib/utils";
+import { cn, formatBytes, formatDate } from "@/lib/utils";
 import { uploadDocument } from "@/lib/upload";
 import { api, ApiError } from "@/lib/api";
 import { useCanManageKbAdmin, useCanWriteDocs } from "@/lib/org-role";
@@ -60,7 +74,6 @@ export default function KnowledgeBaseDetailPage() {
   const qc = useQueryClient();
   const updateKb = useUpdateKb();
   const deleteKb = useDeleteKb();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: kbs, isError: kbsError, error: kbsErr } = useKnowledgeBases();
   const {
     data: docs,
@@ -74,6 +87,9 @@ export default function KnowledgeBaseDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [preview, setPreview] = useState<DocumentPreviewPayload | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [expandedChunks, setExpandedChunks] = useState<Record<string, boolean>>(
     {},
   );
@@ -103,8 +119,12 @@ export default function KnowledgeBaseDetailPage() {
       .catch(() => setKbAcls([]));
   }, [orgId, kbId, canAcl]);
 
-  async function onUpload(files: FileList | null, documentId?: string) {
-    if (!files?.length || !orgId || !canMutate) return;
+  async function onUpload(
+    files: FileList | File[] | null,
+    documentId?: string,
+  ) {
+    if (!files || !("length" in files) || !files.length || !orgId || !canMutate)
+      return;
     setUploading(true);
     setError("");
     try {
@@ -173,7 +193,10 @@ export default function KnowledgeBaseDetailPage() {
         method: "DELETE",
         orgId,
       });
-      if (selectedDocId === docId) setSelectedDocId(null);
+      if (selectedDocId === docId) {
+        setSelectedDocId(null);
+        setDetailsOpen(false);
+      }
       await qc.invalidateQueries({ queryKey: ["documents", orgId, kbId] });
       toast.success(t("feedback.deleteOk"));
     } catch (err) {
@@ -192,16 +215,34 @@ export default function KnowledgeBaseDetailPage() {
       const data = await api<{
         url: string;
         filename: string;
+        mimeType?: string;
         disposition: string;
       }>(`/organizations/${orgId}/documents/${docId}/download-url${qs}`, {
         orgId,
       });
-      window.open(data.url, "_blank", "noopener,noreferrer");
+      const doc = docs?.find((d) => d.id === docId);
+      setPreview({
+        url: data.url,
+        filename: data.filename,
+        mimeType: data.mimeType || "application/octet-stream",
+        title: doc?.title || data.filename,
+      });
+      setPreviewOpen(true);
     } catch (err) {
       const msg =
         err instanceof ApiError ? err.message : t("kb.viewFail");
       toast.error(t("kb.viewFail"), msg);
     }
+  }
+
+  function openDetails(docId: string) {
+    setSelectedDocId(docId);
+    setDetailsOpen(true);
+  }
+
+  function closeDetails() {
+    setDetailsOpen(false);
+    setSelectedDocId(null);
   }
 
   async function activateVersion(docId: string, versionId: string) {
@@ -247,9 +288,7 @@ export default function KnowledgeBaseDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <Link href="/app/knowledge-bases" className="text-sm text-sky-600 hover:underline">
-            ← {t("common.back")}
-          </Link>
+          <BackLink href="/app/knowledge-bases" className="-ml-2.5" />
           <h2 className="mt-2 text-2xl font-semibold">{kb?.name || t("kb.defaultName")}</h2>
           <p className="text-sm text-slate-500">
             {kb?.description || t("kb.defaultDescription")}
@@ -263,16 +302,16 @@ export default function KnowledgeBaseDetailPage() {
             )}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/app/chat?kbId=${kbId}`}
-            className="inline-flex h-10 items-center rounded-md bg-sky-600 px-4 text-sm font-medium text-white hover:bg-sky-500"
+            className={cn(buttonVariants({ size: "default" }))}
           >
             {t("chat.openChat")}
           </Link>
           <Link
             href={`/app/search?kbId=${kbId}`}
-            className="inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm dark:border-slate-700"
+            className={cn(buttonVariants({ variant: "outline", size: "default" }))}
           >
             {t("nav.search")}
           </Link>
@@ -280,7 +319,7 @@ export default function KnowledgeBaseDetailPage() {
             <>
               <Button
                 type="button"
-                size="sm"
+                size="default"
                 variant="outline"
                 disabled={updateKb.isPending}
                 onClick={async () => {
@@ -319,7 +358,7 @@ export default function KnowledgeBaseDetailPage() {
               </Button>
               <Button
                 type="button"
-                size="sm"
+                size="default"
                 variant="danger"
                 disabled={deleteKb.isPending}
                 onClick={async () => {
@@ -371,39 +410,22 @@ export default function KnowledgeBaseDetailPage() {
 
       {canMutate ? (
         <>
-        <Card className="border-accent-300 dark:border-accent-700">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <h3 className="flex items-center gap-2 font-medium">
-                <Upload className="h-4 w-4" />
-                {t("kb.uploadTitle")}
-              </h3>
-              <p className="mt-1 text-sm text-foreground/75">{t("kb.uploadHint")}</p>
-              <p className="mt-1 text-xs text-foreground/65">{t("kb.uploadHere")}</p>
-              <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{t("kb.uploadTip")}</p>
+              <h3 className="font-medium">{t("kb.uploadTitle")}</h3>
+              <p className="mt-1 text-xs text-muted">{t("kb.uploadHere")}</p>
             </div>
-            <Button
-              type="button"
-              disabled={!orgId || uploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="h-4 w-4" />
-              {uploading ? t("kb.uploading") : t("kb.chooseFiles")}
-            </Button>
+            <p className="max-w-md text-right text-[11px] text-amber-700 dark:text-amber-300">
+              {t("kb.uploadTip")}
+            </p>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.tif,.tiff,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/markdown,image/*"
-            className="sr-only"
-            disabled={!orgId || uploading}
-            onChange={(e) => {
-              void onUpload(e.target.files);
-              e.target.value = "";
-            }}
+          <FileDropzone
+            disabled={!orgId}
+            uploading={uploading}
+            onFiles={(files) => void onUpload(files)}
           />
-        </Card>
+        </section>
         <Card className="space-y-2 p-4">
           <h3 className="font-medium">{t("kb.noteTitle")}</h3>
           <p className="text-xs text-muted">{t("kb.noteHint")}</p>
@@ -419,6 +441,12 @@ export default function KnowledgeBaseDetailPage() {
               const content = contentEl?.value || "";
               if (!title || !orgId) return;
               void (async () => {
+                const ok = await confirmDialog({
+                  title: t("feedback.createNoteTitle"),
+                  description: t("feedback.createNoteDesc", { name: title }),
+                  confirmLabel: t("common.create"),
+                });
+                if (!ok) return;
                 try {
                   await api(`/organizations/${orgId}/knowledge-bases/${kbId}/notes`, {
                     method: "POST",
@@ -527,38 +555,47 @@ export default function KnowledgeBaseDetailPage() {
                         {formatDate(doc.updatedAt)}
                       </td>
                       <td className="py-3">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-nowrap items-center gap-1">
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="outline"
+                            className="h-8 w-8"
                             disabled={!doc.currentVersion}
                             title={t("kb.viewDoc")}
                             aria-label={t("kb.viewDoc")}
                             onClick={() => void viewDocument(doc.id)}
                           >
                             <Eye className="h-4 w-4" />
-                            <span className="hidden sm:inline">
-                              {t("kb.viewDoc")}
-                            </span>
                           </Button>
                           <Button
-                            size="sm"
+                            size="icon"
                             variant="outline"
-                            onClick={() =>
-                              setSelectedDocId((id) =>
-                                id === doc.id ? null : doc.id,
-                              )
+                            className="h-8 w-8"
+                            title={t("kb.details")}
+                            aria-label={t("kb.details")}
+                            aria-pressed={
+                              detailsOpen && selectedDocId === doc.id
                             }
+                            onClick={() => openDetails(doc.id)}
                           >
-                            {t("kb.details")}
+                            <ListDetails className="h-4 w-4" />
                           </Button>
                           {canMutate && (
                             <>
                               {doc.trustStatus !== "verified" ? (
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
+                                  className="h-8 w-8"
+                                  title={t("kb.verify")}
+                                  aria-label={t("kb.verify")}
                                   onClick={async () => {
+                                    const ok = await confirmDialog({
+                                      title: t("feedback.verifyDocTitle"),
+                                      description: t("feedback.verifyDocDesc"),
+                                      confirmLabel: t("kb.verify"),
+                                    });
+                                    if (!ok) return;
                                     try {
                                       await api(
                                         `/organizations/${orgId}/documents/${doc.id}/governance`,
@@ -582,13 +619,23 @@ export default function KnowledgeBaseDetailPage() {
                                     }
                                   }}
                                 >
-                                  {t("kb.verify")}
+                                  <ShieldCheck className="h-4 w-4" />
                                 </Button>
                               ) : (
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="outline"
+                                  className="h-8 w-8"
+                                  title={t("kb.unverify")}
+                                  aria-label={t("kb.unverify")}
                                   onClick={async () => {
+                                    const ok = await confirmDialog({
+                                      title: t("feedback.unverifyDocTitle"),
+                                      description: t("feedback.unverifyDocDesc"),
+                                      confirmLabel: t("kb.unverify"),
+                                      danger: true,
+                                    });
+                                    if (!ok) return;
                                     try {
                                       await api(
                                         `/organizations/${orgId}/documents/${doc.id}/governance`,
@@ -612,24 +659,30 @@ export default function KnowledgeBaseDetailPage() {
                                     }
                                   }}
                                 >
-                                  {t("kb.unverify")}
+                                  <ShieldOff className="h-4 w-4" />
                                 </Button>
                               )}
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="outline"
+                                className="h-8 w-8"
                                 disabled={busy}
+                                title={t("kb.reprocess")}
+                                aria-label={t("kb.reprocess")}
                                 onClick={() => reprocess(doc.id)}
                               >
-                                {t("kb.reprocess")}
+                                <RotateCcw className="h-4 w-4" />
                               </Button>
                               <Button
-                                size="sm"
+                                size="icon"
                                 variant="danger"
+                                className="h-8 w-8"
                                 disabled={busy}
+                                title={t("common.delete")}
+                                aria-label={t("common.delete")}
                                 onClick={() => removeDoc(doc.id)}
                               >
-                                {t("common.delete")}
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </>
                           )}
@@ -652,26 +705,35 @@ export default function KnowledgeBaseDetailPage() {
         )}
       </Card>
 
-      {selectedDocId && (
+      <DocumentPreviewDialog
+        open={previewOpen}
+        payload={preview}
+        onClose={() => {
+          setPreviewOpen(false);
+          setPreview(null);
+        }}
+      />
+
+      <SideSheet
+        open={Boolean(detailsOpen && selectedDocId)}
+        onClose={closeDetails}
+        title={t("kb.detailsDialogTitle")}
+        subtitle={selectedDoc?.title || selectedDocId || undefined}
+        wide
+      >
+        <div className="space-y-4 p-4 sm:p-5">
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="font-medium">{t("kb.versionsTitle")}</h3>
-              {canMutate && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-sky-700">
-                  <span>{t("kb.newVersion")}</span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.docx,.xlsx,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.tif,.tiff,image/*"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      void onUpload(e.target.files, selectedDocId);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              )}
+              {canMutate && selectedDocId ? (
+                <FileDropzoneCompact
+                  label={t("kb.newVersion")}
+                  disabled={uploading}
+                  uploading={uploading}
+                  onFiles={(files) => void onUpload(files, selectedDocId)}
+                />
+              ) : null}
             </div>
             <ul className="space-y-2 text-sm">
               {(versions || []).map((v) => (
@@ -692,13 +754,15 @@ export default function KnowledgeBaseDetailPage() {
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     <Button
-                      size="sm"
+                      size="icon"
                       variant="outline"
+                      className="h-8 w-8"
                       title={t("kb.viewDoc")}
                       aria-label={t("kb.viewDoc")}
-                      onClick={() =>
-                        void viewDocument(selectedDocId, v.id)
-                      }
+                      onClick={() => {
+                        if (!selectedDocId) return;
+                        void viewDocument(selectedDocId, v.id);
+                      }}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -707,7 +771,10 @@ export default function KnowledgeBaseDetailPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => activateVersion(selectedDocId, v.id)}
+                          onClick={() => {
+                            if (!selectedDocId) return;
+                            void activateVersion(selectedDocId, v.id);
+                          }}
                         >
                           {t("kb.activateVersion")}
                         </Button>
@@ -746,7 +813,10 @@ export default function KnowledgeBaseDetailPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => retryJob(j.id, selectedDocId)}
+                      onClick={() => {
+                        if (!selectedDocId) return;
+                        void retryJob(j.id, selectedDocId);
+                      }}
                     >
                       {t("kb.retryJob")}
                     </Button>
@@ -821,7 +891,8 @@ export default function KnowledgeBaseDetailPage() {
             </div>
           </Card>
         </div>
-      )}
+        </div>
+      </SideSheet>
 
       {canAcl && (
         <Card className="mt-4 space-y-5 p-5">
@@ -839,6 +910,14 @@ export default function KnowledgeBaseDetailPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               if (!orgId) return;
+              const principal = aclPrincipal.trim();
+              if (!principal) return;
+              const ok = await confirmDialog({
+                title: t("feedback.addAclTitle"),
+                description: t("feedback.addAclDesc"),
+                confirmLabel: t("acl.add"),
+              });
+              if (!ok) return;
               try {
                 await api(
                   `/organizations/${orgId}/knowledge-bases/${kbId}/acls`,
@@ -847,7 +926,7 @@ export default function KnowledgeBaseDetailPage() {
                     orgId,
                     body: {
                       principalType: aclType,
-                      principalId: aclPrincipal.trim(),
+                      principalId: principal,
                       permission: "read",
                     },
                   },
@@ -947,13 +1026,30 @@ export default function KnowledgeBaseDetailPage() {
                       className="shrink-0"
                       onClick={async () => {
                         if (!orgId) return;
-                        await api(
-                          `/organizations/${orgId}/knowledge-bases/${kbId}/acls/${a.id}`,
-                          { method: "DELETE", orgId },
-                        );
-                        setKbAcls((prev) =>
-                          prev.filter((x) => x.id !== a.id),
-                        );
+                        const ok = await confirmDialog({
+                          title: t("feedback.removeAclTitle"),
+                          description: t("feedback.removeAclDesc"),
+                          confirmLabel: t("common.delete"),
+                          danger: true,
+                        });
+                        if (!ok) return;
+                        try {
+                          await api(
+                            `/organizations/${orgId}/knowledge-bases/${kbId}/acls/${a.id}`,
+                            { method: "DELETE", orgId },
+                          );
+                          setKbAcls((prev) =>
+                            prev.filter((x) => x.id !== a.id),
+                          );
+                          toast.success(t("feedback.deleteOk"));
+                        } catch (err) {
+                          toast.error(
+                            t("feedback.deleteFail"),
+                            err instanceof ApiError
+                              ? err.message
+                              : String(err),
+                          );
+                        }
                       }}
                     >
                       {t("common.delete")}

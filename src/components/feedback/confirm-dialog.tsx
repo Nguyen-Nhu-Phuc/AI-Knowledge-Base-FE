@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useConfirmStore } from "@/components/feedback/confirm-store";
@@ -11,21 +12,31 @@ export function ConfirmDialogHost() {
   const options = useConfirmStore((s) => s.options);
   const close = useConfirmStore((s) => s.close);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     confirmRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open, close]);
 
-  if (!open || !options) return null;
+  if (!mounted || !open || !options) return null;
 
-  return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <button
         type="button"
         className="absolute inset-0 bg-ink-950/55 backdrop-blur-[2px]"
@@ -39,7 +50,10 @@ export function ConfirmDialogHost() {
         aria-describedby={options.description ? "confirm-desc" : undefined}
         className="relative z-[1] w-full max-w-md rounded-2xl border border-border bg-surface-elevated p-5 shadow-panel"
       >
-        <h2 id="confirm-title" className="font-display text-lg font-semibold tracking-tight">
+        <h2
+          id="confirm-title"
+          className="font-display text-lg font-semibold tracking-tight"
+        >
           {options.title}
         </h2>
         {options.description && (
@@ -61,6 +75,7 @@ export function ConfirmDialogHost() {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

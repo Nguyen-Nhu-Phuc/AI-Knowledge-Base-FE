@@ -16,7 +16,7 @@ import {
   type ThemeColors,
 } from "@/lib/theme-prefs";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/feedback";
+import { confirmDialog, toast } from "@/components/feedback";
 
 const APPEARANCE: AppearanceMode[] = ["light", "dark", "system"];
 const SLOTS: ThemeColorSlot[] = ["primary", "secondary", "tertiary"];
@@ -124,8 +124,16 @@ export function ThemeCustomizer() {
           variant="ghost"
           size="sm"
           onClick={() => {
-            resetTheme();
-            toast.info(t("feedback.themeResetOk"));
+            void (async () => {
+              const ok = await confirmDialog({
+                title: t("feedback.themeResetTitle"),
+                description: t("feedback.themeResetDesc"),
+                confirmLabel: t("settings.resetTheme"),
+              });
+              if (!ok) return;
+              resetTheme();
+              toast.info(t("feedback.themeResetOk"));
+            })();
           }}
         >
           <RotateCcw className="h-3.5 w-3.5" />

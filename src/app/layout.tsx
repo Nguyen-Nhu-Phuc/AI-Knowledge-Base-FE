@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Figtree, Syne } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { APP_NAME, APP_TAGLINE_EN, APP_TAGLINE_VI } from "@/lib/brand";
 import "./globals.css";
 
 const sans = Figtree({
@@ -16,11 +18,14 @@ const display = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "AI Knowledge Base",
-  description: "Enterprise AI Knowledge Base workspace",
+  title: {
+    default: APP_NAME,
+    template: `%s · ${APP_NAME}`,
+  },
+  description: `${APP_TAGLINE_VI} — ${APP_TAGLINE_EN}`,
   appleWebApp: {
     capable: true,
-    title: "AI Knowledge Base",
+    title: APP_NAME,
     statusBarStyle: "default",
   },
 };
@@ -36,9 +41,16 @@ export const viewport: Viewport = {
   ],
 };
 
+type AppLocale = "en" | "vi";
+
 const accentBootScript = `
 (function(){
   try {
+    var loc = localStorage.getItem('akb-locale');
+    if (loc === 'en' || loc === 'vi') {
+      document.cookie = 'akb-locale=' + loc + ';path=/;max-age=31536000;samesite=lax';
+      document.documentElement.lang = loc;
+    }
     var raw = localStorage.getItem('akb-theme-prefs');
     if (!raw) return;
     var prefs = JSON.parse(raw);
@@ -107,18 +119,26 @@ const accentBootScript = `
 })();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jar = await cookies();
+  const raw = jar.get("akb-locale")?.value;
+  const locale: AppLocale = raw === "vi" || raw === "en" ? raw : "en";
+
   return (
-    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={`${sans.variable} ${display.variable}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: accentBootScript }} />
       </head>
       <body className="font-sans antialiased">
-        <Providers>{children}</Providers>
+        <Providers locale={locale}>{children}</Providers>
       </body>
     </html>
   );

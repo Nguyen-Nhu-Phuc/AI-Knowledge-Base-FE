@@ -1,13 +1,18 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeCustomizer } from "@/components/theme-customizer";
+import { UserAvatar } from "@/components/user-avatar";
 import { confirmDialog, toast } from "@/components/feedback";
 import { api, ApiError } from "@/lib/api";
+import {
+  isCloudinaryConfigured,
+  uploadImageToCloudinary,
+} from "@/lib/cloudinary";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   useCreateOrg,
@@ -35,6 +40,8 @@ export default function SettingsPage() {
   const setOrganizations = useAuthStore((s) => s.setOrganizations);
   const setCurrentOrgId = useAuthStore((s) => s.setCurrentOrgId);
   const [name, setName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [orgName, setOrgName] = useState("");
@@ -49,6 +56,7 @@ export default function SettingsPage() {
   const [aiQuota, setAiQuota] = useState("0");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const createOrg = useCreateOrg();
   const { data: createRequests } = useMyOrgCreateRequests();
   useOrganizations();
@@ -60,10 +68,12 @@ export default function SettingsPage() {
   const canRenameOrg = hasMinRole(currentOrg?.role, "admin");
   const canDeleteOrg = hasMinRole(currentOrg?.role, "owner");
   const providerOptions = ["mock", "openai", "gemini"] as const;
+  const cloudinaryReady = isCloudinaryConfigured();
 
   useEffect(() => {
     if (me?.name) setName(me.name);
-  }, [me?.name]);
+    setAvatarUrl(me?.avatarUrl ?? null);
+  }, [me?.name, me?.avatarUrl]);
 
   useEffect(() => {
     if (currentOrg?.name) setRenameOrg(currentOrg.name);
@@ -111,6 +121,12 @@ export default function SettingsPage() {
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
+    const ok = await confirmDialog({
+      title: t("feedback.saveProfileTitle"),
+      description: t("feedback.saveProfileDesc"),
+      confirmLabel: t("settings.saveProfile"),
+    });
+    if (!ok) return;
     setError("");
     setMessage("");
     try {
@@ -119,12 +135,89 @@ export default function SettingsPage() {
         body: { name },
       });
       setUser(user);
+      setAvatarUrl(user.avatarUrl ?? null);
       setMessage(t("settings.profileUpdated"));
       toast.success(t("feedback.profileOk"));
+      await qc.invalidateQueries({ queryKey: ["me"] });
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : t("common.failed");
       setError(msg);
       toast.error(t("common.failed"), msg);
+    }
+  }
+
+  async function persistAvatar(nextUrl: string | null) {
+    const user = await api<User>("/users/me", {
+      method: "PATCH",
+      body: { avatarUrl: nextUrl },
+    });
+    setUser(user);
+    setAvatarUrl(user.avatarUrl ?? null);
+    await qc.invalidateQueries({ queryKey: ["me"] });
+    return user;
+  }
+
+  async function onAvatarSelected(file: File | null) {
+    if (!file) return;
+    setError("");
+    setMessage("");
+    if (!cloudinaryReady) {
+      const msg = t("settings.avatarMissingConfig");
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      const msg = t("settings.avatarInvalidType");
+      setError(msg);
+      toast.warn(msg);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      const msg = t("settings.avatarTooLarge");
+      setError(msg);
+      toast.warn(msg);
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      const uploaded = await uploadImageToCloudinary(file, {
+        folder: "trin-nguon/avatars",
+      });
+      await persistAvatar(uploaded.secure_url);
+      setMessage(t("feedback.avatarOk"));
+      toast.success(t("feedback.avatarOk"));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("common.failed");
+      setError(msg);
+      toast.error(t("common.failed"), msg);
+    } finally {
+      setAvatarBusy(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
+
+  async function removeAvatar() {
+    const ok = await confirmDialog({
+      title: t("feedback.removeAvatarTitle"),
+      description: t("feedback.removeAvatarDesc"),
+      confirmLabel: t("settings.avatarRemove"),
+      danger: true,
+    });
+    if (!ok) return;
+    setError("");
+    setMessage("");
+    setAvatarBusy(true);
+    try {
+      await persistAvatar(null);
+      setMessage(t("feedback.avatarRemoved"));
+      toast.success(t("feedback.avatarRemoved"));
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : t("common.failed");
+      setError(msg);
+      toast.error(t("common.failed"), msg);
+    } finally {
+      setAvatarBusy(false);
     }
   }
 
@@ -137,6 +230,12 @@ export default function SettingsPage() {
       toast.warn(t("auth.passwordHint"));
       return;
     }
+    const ok = await confirmDialog({
+      title: t("feedback.changePasswordTitle"),
+      description: t("feedback.changePasswordDesc"),
+      confirmLabel: t("settings.updatePassword"),
+    });
+    if (!ok) return;
     try {
       await api("/users/me/password", {
         method: "PATCH",
@@ -198,9 +297,70 @@ export default function SettingsPage() {
 
       <Card>
         <h3 className="font-medium">{t("settings.profile")}</h3>
-        <form onSubmit={saveProfile} className="mt-4 space-y-3">
-          <Input value={me?.email || ""} disabled />
-          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        <p className="mt-1 text-xs text-foreground/75">{t("settings.avatarHint")}</p>
+
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <UserAvatar
+            name={name || me?.name}
+            avatarUrl={avatarUrl}
+            className="h-16 w-16 text-base"
+          />
+          <div className="min-w-0 space-y-2">
+            <p className="text-sm font-medium">{t("settings.avatar")}</p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => void onAvatarSelected(e.target.files?.[0] || null)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={avatarBusy || !cloudinaryReady}
+                onClick={() => avatarInputRef.current?.click()}
+              >
+                {avatarBusy
+                  ? t("settings.avatarUploading")
+                  : avatarUrl
+                    ? t("settings.avatarChange")
+                    : t("settings.avatarUpload")}
+              </Button>
+              {avatarUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={avatarBusy}
+                  onClick={() => void removeAvatar()}
+                >
+                  {t("settings.avatarRemove")}
+                </Button>
+              ) : null}
+            </div>
+            {!cloudinaryReady ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {t("settings.avatarMissingConfig")}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <form onSubmit={saveProfile} className="mt-5 space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">
+              {t("settings.email")}
+            </label>
+            <Input value={me?.email || ""} disabled />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">
+              {t("settings.displayName")}
+            </label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
           <Button type="submit">{t("settings.saveProfile")}</Button>
         </form>
       </Card>
@@ -284,6 +444,12 @@ export default function SettingsPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               if (!canRenameOrg) return;
+              const ok = await confirmDialog({
+                title: t("feedback.renameOrgTitle"),
+                description: t("feedback.renameOrgDesc"),
+                confirmLabel: t("settings.renameOrg"),
+              });
+              if (!ok) return;
               setError("");
               setMessage("");
               try {
@@ -364,6 +530,15 @@ export default function SettingsPage() {
                 checked={allowMemberCreateKb}
                 onChange={async (e) => {
                   const next = e.target.checked;
+                  const ok = await confirmDialog({
+                    title: t("feedback.orgSettingTitle"),
+                    description: t("feedback.orgSettingDesc"),
+                    confirmLabel: t("feedback.confirm"),
+                  });
+                  if (!ok) {
+                    e.target.checked = !next;
+                    return;
+                  }
                   setAllowMemberCreateKb(next);
                   setError("");
                   setMessage("");
@@ -407,6 +582,15 @@ export default function SettingsPage() {
                 onChange={async (e) => {
                   const next = e.target.value;
                   const prev = embeddingProvider;
+                  const ok = await confirmDialog({
+                    title: t("feedback.orgSettingTitle"),
+                    description: t("feedback.orgSettingDesc"),
+                    confirmLabel: t("feedback.confirm"),
+                  });
+                  if (!ok) {
+                    e.target.value = prev;
+                    return;
+                  }
                   setEmbeddingProvider(next);
                   setError("");
                   try {
@@ -441,6 +625,15 @@ export default function SettingsPage() {
                 onChange={async (e) => {
                   const next = e.target.value;
                   const prev = llmProvider;
+                  const ok = await confirmDialog({
+                    title: t("feedback.orgSettingTitle"),
+                    description: t("feedback.orgSettingDesc"),
+                    confirmLabel: t("feedback.confirm"),
+                  });
+                  if (!ok) {
+                    e.target.value = prev;
+                    return;
+                  }
                   setLlmProvider(next);
                   setError("");
                   try {
@@ -480,6 +673,15 @@ export default function SettingsPage() {
               onChange={async (e) => {
                 const next = e.target.value;
                 const prev = aclMode;
+                const ok = await confirmDialog({
+                  title: t("feedback.orgSettingTitle"),
+                  description: t("feedback.orgSettingDesc"),
+                  confirmLabel: t("feedback.confirm"),
+                });
+                if (!ok) {
+                  e.target.value = prev;
+                  return;
+                }
                 setAclMode(next);
                 try {
                   await patchOrgSettings({ acl_mode: next });
@@ -507,6 +709,15 @@ export default function SettingsPage() {
               onChange={async (e) => {
                 const next = e.target.checked;
                 const prev = dlpEnabled;
+                const ok = await confirmDialog({
+                  title: t("feedback.orgSettingTitle"),
+                  description: t("feedback.orgSettingDesc"),
+                  confirmLabel: t("feedback.confirm"),
+                });
+                if (!ok) {
+                  e.target.checked = prev;
+                  return;
+                }
                 setDlpEnabled(next);
                 try {
                   await patchOrgSettings({ dlp_enabled: next });

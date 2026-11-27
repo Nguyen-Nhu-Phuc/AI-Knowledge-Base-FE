@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, FolderTree, UserRound, Users } from "@/components/icons";
+import { ChevronDown, ChevronRight, FolderTree, Users } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/user-avatar";
 import { labelRole } from "@/lib/i18n-labels";
 import type { Member, OrgRole } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const ROLE_ORDER: OrgRole[] = ["owner", "admin", "member", "viewer"];
 
@@ -59,7 +60,7 @@ export function MembersRoleTree({
       <p className="text-xs text-muted">{t("members.treeHint")}</p>
 
       <ul className="mt-2 space-y-0.5 text-sm" role="tree" aria-label={t("members.treeTitle")}>
-        <li role="treeitem" aria-expanded={orgOpen}>
+        <li role="treeitem" aria-selected={orgOpen} aria-expanded={orgOpen}>
           <button
             type="button"
             className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
@@ -85,7 +86,13 @@ export function MembersRoleTree({
                 const list = grouped.get(role) ?? [];
                 const open = openRoles[role] !== false;
                 return (
-                  <li key={role} role="treeitem" aria-expanded={open} className="mt-0.5">
+                  <li
+                    key={role}
+                    role="treeitem"
+                    aria-selected={open}
+                    aria-expanded={open}
+                    className="mt-0.5"
+                  >
                     <button
                       type="button"
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
@@ -116,9 +123,14 @@ export function MembersRoleTree({
                               <li
                                 key={m.id}
                                 role="treeitem"
-                                className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+                                aria-selected={false}
+                                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5"
                               >
-                                <UserRound className="h-3.5 w-3.5 shrink-0 text-muted" />
+                                <UserAvatar
+                                  name={m.user.name}
+                                  avatarUrl={m.user.avatarUrl}
+                                  className="h-7 w-7 text-[10px]"
+                                />
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate font-medium">
                                     {m.user.name}

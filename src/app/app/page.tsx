@@ -17,7 +17,6 @@ import {
   useMyOrgCreateRequests,
   useOrganizations,
 } from "@/lib/hooks";
-import { useAuthStore } from "@/stores/auth-store";
 import { Badge } from "@/components/ui/badge";
 import { labelStatus } from "@/lib/i18n-labels";
 
@@ -27,7 +26,6 @@ export default function DashboardPage() {
   const { data: orgs, isLoading: orgsLoading } = useOrganizations();
   const { data: kbs } = useKnowledgeBases();
   const { data: createRequests } = useMyOrgCreateRequests();
-  const currentOrgId = useAuthStore((s) => s.currentOrgId);
   const createOrg = useCreateOrg();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");

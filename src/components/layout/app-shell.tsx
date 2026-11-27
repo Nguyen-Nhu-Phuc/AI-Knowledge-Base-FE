@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { NotificationsBell } from "@/components/notifications-bell";
+import { UserAvatar } from "@/components/user-avatar";
 import { useThemePrefs } from "@/components/theme-prefs-provider";
 import { useMe, useOrganizations } from "@/lib/hooks";
 import { hasMinRole } from "@/stores/auth-store";
@@ -61,6 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const orgs = useAuthStore((s) => s.organizations);
   const currentOrgId = useAuthStore((s) => s.currentOrgId);
   const setCurrentOrgId = useAuthStore((s) => s.setCurrentOrgId);
+  const setUser = useAuthStore((s) => s.setUser);
   const clearSession = useAuthStore((s) => s.clearSession);
   const { data: me } = useMe();
   const orgRole = useCurrentOrgRole();
@@ -70,6 +72,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarReady, setSidebarReady] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!me) return;
+    if (
+      me.id !== user?.id ||
+      me.name !== user?.name ||
+      me.avatarUrl !== user?.avatarUrl ||
+      me.email !== user?.email
+    ) {
+      setUser(me);
+    }
+  }, [me, user?.id, user?.name, user?.avatarUrl, user?.email, setUser]);
 
   useEffect(() => {
     try {
@@ -299,8 +313,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   function UserCard({ compact }: { compact?: boolean }) {
-    const initial = (user?.name || "?").slice(0, 1).toUpperCase();
-
     const logoutItem = (
       <button
         type="button"
@@ -325,9 +337,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             aria-expanded={userMenuOpen}
             aria-haspopup="menu"
             onClick={() => setUserMenuOpen((v) => !v)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent-soft-fg ring-offset-2 hover:ring-2 hover:ring-border"
+            className="rounded-full ring-offset-2 hover:ring-2 hover:ring-border"
           >
-            {initial}
+            <UserAvatar name={user?.name} avatarUrl={user?.avatarUrl} />
           </button>
           {userMenuOpen ? (
             <div
@@ -356,9 +368,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClick={() => setUserMenuOpen((v) => !v)}
           className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-surface-elevated p-2.5 text-left transition-colors hover:bg-ink-100 dark:hover:bg-ink-800"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent-soft-fg">
-            {initial}
-          </span>
+          <UserAvatar name={user?.name} avatarUrl={user?.avatarUrl} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium text-foreground">
               {user?.name}
@@ -520,7 +530,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </header>
 
-            <main className="page-enter min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-[var(--app-main-pad-x)] pb-[calc(var(--mobile-nav-h)+var(--safe-bottom)+1rem)] pt-4 md:pb-8 md:pt-6">
+            <main
+              className={cn(
+                "min-h-0 w-full flex-1 overscroll-contain px-[var(--app-main-pad-x)]",
+                pathname.startsWith("/app/chat")
+                  ? "flex flex-col overflow-hidden pb-[calc(var(--mobile-nav-h)+var(--safe-bottom))] pt-2 md:pb-3 md:pt-3"
+                  : "page-enter overflow-y-auto pb-[calc(var(--mobile-nav-h)+var(--safe-bottom)+1rem)] pt-4 md:pb-8 md:pt-6",
+              )}
+            >
               {children}
             </main>
           </div>

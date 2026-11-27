@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError } from "@/lib/api";
 import { useKnowledgeBases, useOrgId } from "@/lib/hooks";
 import { useCanManageKbAdmin } from "@/lib/org-role";
-import { toast } from "@/components/feedback";
+import { confirmDialog, toast } from "@/components/feedback";
 import { AppPage } from "@/components/layout/app-page";
 
 type Bot = {
@@ -36,15 +36,15 @@ export default function BotsPage() {
   const [kbId, setKbId] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!orgId) return;
     const data = await api<Bot[]>(`/organizations/${orgId}/bots`, { orgId });
     setBots(data);
-  }
+  }, [orgId]);
 
   useEffect(() => {
     void load().catch(() => undefined);
-  }, [orgId]);
+  }, [load]);
 
   useEffect(() => {
     if (!kbId && kbs?.[0]?.id) setKbId(kbs[0].id);
@@ -53,13 +53,21 @@ export default function BotsPage() {
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     if (!orgId || !canAdmin) return;
+    const trimmed = name.trim();
+    if (!trimmed || !kbId) return;
+    const ok = await confirmDialog({
+      title: t("feedback.createBotTitle"),
+      description: t("feedback.createBotDesc", { name: trimmed }),
+      confirmLabel: t("bots.create"),
+    });
+    if (!ok) return;
     setLoading(true);
     try {
       await api(`/organizations/${orgId}/bots`, {
         method: "POST",
         orgId,
         body: {
-          name,
+          name: trimmed,
           description: description || undefined,
           systemPrompt,
           knowledgeBaseId: kbId,
@@ -161,6 +169,13 @@ export default function BotsPage() {
                   size="sm"
                   variant="outline"
                   onClick={async () => {
+                    const ok = await confirmDialog({
+                      title: t("feedback.deleteBotTitle"),
+                      description: t("feedback.deleteBotDesc", { name: b.name }),
+                      confirmLabel: t("common.delete"),
+                      danger: true,
+                    });
+                    if (!ok) return;
                     try {
                       await api(`/organizations/${orgId}/bots/${b.id}`, {
                         method: "DELETE",

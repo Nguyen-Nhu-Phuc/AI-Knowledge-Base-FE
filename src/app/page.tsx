@@ -1,28 +1,13 @@
-"use client";
+import type { Metadata } from "next";
+import { LandingPage } from "@/components/landing/landing-page";
+import { APP_NAME } from "@/lib/brand";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useTranslation } from "react-i18next";
-import { rehydrateAuthStore, useAuthStore } from "@/stores/auth-store";
+export const metadata: Metadata = {
+  title: APP_NAME,
+  description:
+    "Nơi đội ngũ hỏi tri thức nội bộ — có nguồn. Ask internal documents and get cited answers.",
+};
 
 export default function HomePage() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const token = useAuthStore((s) => s.accessToken);
-  const hasHydrated = useAuthStore((s) => s.hasHydrated);
-
-  useEffect(() => {
-    rehydrateAuthStore();
-  }, []);
-
-  useEffect(() => {
-    if (!hasHydrated) return;
-    router.replace(token ? "/app" : "/login");
-  }, [hasHydrated, token, router]);
-
-  return (
-    <div className="app-canvas flex min-h-screen items-center justify-center text-sm text-muted">
-      {hasHydrated ? t("common.redirecting") : t("common.loading")}
-    </div>
-  );
+  return <LandingPage />;
 }

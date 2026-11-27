@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
 import { useOrgId } from "@/lib/hooks";
 import { useCanManageKbAdmin } from "@/lib/org-role";
-import { toast } from "@/components/feedback";
+import { confirmDialog, toast } from "@/components/feedback";
 import { AppPage } from "@/components/layout/app-page";
 
 type Entity = {
@@ -29,18 +29,18 @@ export default function PeoplePage() {
   const [items, setItems] = useState<Entity[]>([]);
   const [busy, setBusy] = useState(false);
 
-  async function load(query = q) {
+  const load = useCallback(async (query = "") => {
     if (!orgId) return;
     const data = await api<Entity[]>(
       `/organizations/${orgId}/entities${query ? `?q=${encodeURIComponent(query)}` : "?type=person"}`,
       { orgId },
     );
     setItems(data);
-  }
+  }, [orgId]);
 
   useEffect(() => {
     void load().catch(() => undefined);
-  }, [orgId]);
+  }, [load]);
 
   return (
     <AppPage>
@@ -65,6 +65,12 @@ export default function PeoplePage() {
             disabled={busy}
             onClick={async () => {
               if (!orgId) return;
+              const ok = await confirmDialog({
+                title: t("feedback.rebuildPeopleTitle"),
+                description: t("feedback.rebuildPeopleDesc"),
+                confirmLabel: t("people.rebuild"),
+              });
+              if (!ok) return;
               setBusy(true);
               try {
                 const res = await api<{ people: number; links: number }>(

@@ -1,7 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="16" fill="#0d9488"/>
-  <rect x="15" y="11" width="34" height="42" rx="5" fill="#ecfeff"/>
-  <rect x="20" y="17" width="24" height="28" rx="3" fill="#0f766e"/>
-  <path d="M28 28h8M28 34h8M28 40h5" stroke="#99f6e4" stroke-width="2.2" stroke-linecap="round"/>
-  <circle cx="32" cy="48.5" r="2.4" fill="#0d9488"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="TriNguồn">
+  <defs>
+    <linearGradient id="tn-bg" x1="8" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#115e59"/>
+      <stop offset="0.55" stop-color="#0d9488"/>
+      <stop offset="1" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="tn-page" x1="20" y1="14" x2="46" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0fdfa"/>
+      <stop offset="1" stop-color="#ccfbf1"/>
+    </linearGradient>
+  </defs>
+  <!-- Tile -->
+  <rect width="64" height="64" rx="16" fill="url(#tn-bg)"/>
+  <!-- Soft highlight -->
+  <circle cx="48" cy="14" r="18" fill="#ffffff" fill-opacity="0.12"/>
+  <!-- Document -->
+  <path
+    d="M20 16.5c0-1.4 1.1-2.5 2.5-2.5H36l10 9.5V47.5c0 1.4-1.1 2.5-2.5 2.5h-21c-1.4 0-2.5-1.1-2.5-2.5v-31z"
+    fill="url(#tn-page)"
+  />
+  <path d="M36 14v7.5c0 1.1.9 2 2 2H46" fill="#99f6e4"/>
+  <!-- Text lines -->
+  <path d="M25 30h14M25 36h14M25 42h9" stroke="#0f766e" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- Source / citation node -->
+  <circle cx="44.5" cy="43.5" r="8.5" fill="#115e59"/>
+  <circle cx="44.5" cy="43.5" r="8.5" stroke="#5eead4" stroke-width="1.5" stroke-opacity="0.7"/>
+  <path d="M41.2 43.5l2.1 2.1 4.5-4.6" stroke="#ecfeff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

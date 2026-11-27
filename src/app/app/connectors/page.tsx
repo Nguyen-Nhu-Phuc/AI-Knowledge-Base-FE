@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
 import { useKnowledgeBases, useOrgId } from "@/lib/hooks";
 import { useCanManageKbAdmin } from "@/lib/org-role";
-import { toast } from "@/components/feedback";
+import { confirmDialog, toast } from "@/components/feedback";
 import { AppPage } from "@/components/layout/app-page";
 
 type ConnectorType =
@@ -44,17 +44,17 @@ export default function ConnectorsPage() {
   const [exportPath, setExportPath] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!orgId || !canManage) return;
     const data = await api<Connector[]>(`/organizations/${orgId}/connectors`, {
       orgId,
     });
     setItems(data);
-  }
+  }, [orgId, canManage]);
 
   useEffect(() => {
     void load().catch(() => undefined);
-  }, [orgId, canManage]);
+  }, [load]);
 
   useEffect(() => {
     if (!kbId && kbs?.[0]?.id) setKbId(kbs[0].id);
@@ -63,6 +63,14 @@ export default function ConnectorsPage() {
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     if (!orgId) return;
+    const trimmed = name.trim();
+    if (!trimmed || !kbId) return;
+    const ok = await confirmDialog({
+      title: t("feedback.createConnectorTitle"),
+      description: t("feedback.createConnectorDesc", { name: trimmed }),
+      confirmLabel: t("common.create"),
+    });
+    if (!ok) return;
     setLoading(true);
     try {
       let config: Record<string, unknown> = {};
@@ -73,7 +81,7 @@ export default function ConnectorsPage() {
       await api(`/organizations/${orgId}/connectors`, {
         method: "POST",
         orgId,
-        body: { name, type, knowledgeBaseId: kbId, config },
+        body: { name: trimmed, type, knowledgeBaseId: kbId, config },
       });
       toast.success(t("connectors.created"));
       setName("");
@@ -201,6 +209,14 @@ export default function ConnectorsPage() {
                 size="sm"
                 variant="outline"
                 onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: t("feedback.syncConnectorTitle"),
+                    description: t("feedback.syncConnectorDesc", {
+                      name: c.name,
+                    }),
+                    confirmLabel: t("connectors.sync"),
+                  });
+                  if (!ok) return;
                   try {
                     await api(
                       `/organizations/${orgId}/connectors/${c.id}/sync`,
@@ -222,6 +238,15 @@ export default function ConnectorsPage() {
                 size="sm"
                 variant="danger"
                 onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: t("feedback.deleteConnectorTitle"),
+                    description: t("feedback.deleteConnectorDesc", {
+                      name: c.name,
+                    }),
+                    confirmLabel: t("common.delete"),
+                    danger: true,
+                  });
+                  if (!ok) return;
                   try {
                     await api(`/organizations/${orgId}/connectors/${c.id}`, {
                       method: "DELETE",

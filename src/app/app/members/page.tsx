@@ -21,6 +21,7 @@ import { useCanManageMembers } from "@/lib/org-role";
 import { confirmDialog, toast } from "@/components/feedback";
 import { labelRole } from "@/lib/i18n-labels";
 import { MembersRoleTree } from "@/components/members/members-role-tree";
+import { UserAvatar } from "@/components/user-avatar";
 import { AppPage } from "@/components/layout/app-page";
 
 const ASSIGNABLE_ROLES: OrgRole[] = ["admin", "member", "viewer"];
@@ -46,6 +47,15 @@ export default function MembersPage() {
   async function addMember(e: FormEvent) {
     e.preventDefault();
     if (!orgId) return;
+    const ok = await confirmDialog({
+      title: t("feedback.addMemberTitle"),
+      description: t("feedback.addMemberDesc", {
+        email,
+        role: labelRole(t, role),
+      }),
+      confirmLabel: t("members.addCta"),
+    });
+    if (!ok) return;
     setError("");
     try {
       await api(`/organizations/${orgId}/members`, {
@@ -65,6 +75,14 @@ export default function MembersPage() {
 
   async function createInviteLink() {
     if (!orgId) return;
+    const ok = await confirmDialog({
+      title: t("feedback.inviteLinkTitle"),
+      description: t("feedback.inviteLinkDesc", {
+        role: labelRole(t, role),
+      }),
+      confirmLabel: t("members.inviteLink"),
+    });
+    if (!ok) return;
     setError("");
     try {
       const data = await api<InviteLinkCreated>(
@@ -179,7 +197,16 @@ export default function MembersPage() {
                       key={m.id}
                       className="border-b border-slate-100 dark:border-slate-900"
                     >
-                      <td className="py-3 font-medium">{m.user.name}</td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2.5">
+                          <UserAvatar
+                            name={m.user.name}
+                            avatarUrl={m.user.avatarUrl}
+                            className="h-8 w-8 text-[11px]"
+                          />
+                          <span className="font-medium">{m.user.name}</span>
+                        </div>
+                      </td>
                       <td className="py-3">{m.user.email}</td>
                       <td className="py-3">
                         {isOwner || isSelf || !canManage ? (
@@ -191,31 +218,49 @@ export default function MembersPage() {
                             disabled={updateRole.isPending}
                             onChange={(e) => {
                               const nextRole = e.target.value as OrgRole;
-                              updateRole.mutate(
-                                { userId: m.user.id, role: nextRole },
-                                {
-                                  onSuccess: () => {
-                                    toast.success(t("feedback.roleOk"));
-                                    if (m.user.id === me?.id && orgId) {
-                                      setOrganizations(
-                                        orgs.map((o) =>
-                                          o.id === orgId
-                                            ? { ...o, role: nextRole }
-                                            : o,
-                                        ),
-                                      );
-                                    }
+                              const prevRole = m.role;
+                              if (nextRole === prevRole) return;
+                              void (async () => {
+                                const ok = await confirmDialog({
+                                  title: t("feedback.roleChangeTitle"),
+                                  description: t("feedback.roleChangeDesc", {
+                                    name: m.user.name,
+                                    from: labelRole(t, prevRole),
+                                    to: labelRole(t, nextRole),
+                                  }),
+                                  confirmLabel: t("feedback.confirm"),
+                                });
+                                if (!ok) {
+                                  e.target.value = prevRole;
+                                  return;
+                                }
+                                updateRole.mutate(
+                                  { userId: m.user.id, role: nextRole },
+                                  {
+                                    onSuccess: () => {
+                                      toast.success(t("feedback.roleOk"));
+                                      if (m.user.id === me?.id && orgId) {
+                                        setOrganizations(
+                                          orgs.map((o) =>
+                                            o.id === orgId
+                                              ? { ...o, role: nextRole }
+                                              : o,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    onError: (err) => {
+                                      e.target.value = prevRole;
+                                      const msg =
+                                        err instanceof Error
+                                          ? err.message
+                                          : t("common.failed");
+                                      setError(msg);
+                                      toast.error(t("common.failed"), msg);
+                                    },
                                   },
-                                  onError: (err) => {
-                                    const msg =
-                                      err instanceof Error
-                                        ? err.message
-                                        : t("common.failed");
-                                    setError(msg);
-                                    toast.error(t("common.failed"), msg);
-                                  },
-                                },
-                              );
+                                );
+                              })();
                             }}
                           >
                             {ASSIGNABLE_ROLES.map((r) => (

@@ -272,8 +272,37 @@ export default function SuperAdminPage() {
 
   async function patchUser(
     id: string,
+    name: string,
     body: { status?: string; isPlatformAdmin?: boolean },
   ) {
+    const confirm =
+      body.status === "disabled"
+        ? {
+            title: t("feedback.disableUserTitle"),
+            description: t("feedback.disableUserDesc", { name }),
+            confirmLabel: t("superAdmin.disableUser"),
+            danger: true,
+          }
+        : body.status === "active"
+          ? {
+              title: t("feedback.enableUserTitle"),
+              description: t("feedback.enableUserDesc", { name }),
+              confirmLabel: t("superAdmin.enableUser"),
+            }
+          : body.isPlatformAdmin === true
+            ? {
+                title: t("feedback.grantAdminTitle"),
+                description: t("feedback.grantAdminDesc", { name }),
+                confirmLabel: t("superAdmin.grantAdmin"),
+              }
+            : {
+                title: t("feedback.revokeAdminTitle"),
+                description: t("feedback.revokeAdminDesc", { name }),
+                confirmLabel: t("superAdmin.revokeAdmin"),
+                danger: true,
+              };
+    const ok = await confirmDialog(confirm);
+    if (!ok) return;
     try {
       await api(`/admin/users/${id}`, { method: "PATCH", body });
       await qc.invalidateQueries({ queryKey: ["super-admin", "users"] });
@@ -309,6 +338,12 @@ export default function SuperAdminPage() {
 
   async function saveOrgAi(org: AdminOrg, e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const ok = await confirmDialog({
+      title: t("feedback.orgSettingTitle"),
+      description: t("feedback.orgSettingDesc"),
+      confirmLabel: t("feedback.confirm"),
+    });
+    if (!ok) return;
     const fd = new FormData(e.currentTarget);
     try {
       await api(`/admin/organizations/${org.id}`, {
@@ -332,6 +367,12 @@ export default function SuperAdminPage() {
 
   async function saveSettings(e: FormEvent) {
     e.preventDefault();
+    const ok = await confirmDialog({
+      title: t("feedback.orgSettingTitle"),
+      description: t("feedback.orgSettingDesc"),
+      confirmLabel: t("feedback.confirm"),
+    });
+    if (!ok) return;
     try {
       await api("/admin/platform-settings", {
         method: "PATCH",
@@ -568,7 +609,9 @@ export default function SuperAdminPage() {
                               variant="danger"
                               disabled={u.id === me.id}
                               onClick={() =>
-                                patchUser(u.id, { status: "disabled" })
+                                void patchUser(u.id, u.name, {
+                                  status: "disabled",
+                                })
                               }
                             >
                               {t("superAdmin.disableUser")}
@@ -577,7 +620,9 @@ export default function SuperAdminPage() {
                             <Button
                               size="sm"
                               onClick={() =>
-                                patchUser(u.id, { status: "active" })
+                                void patchUser(u.id, u.name, {
+                                  status: "active",
+                                })
                               }
                             >
                               {t("superAdmin.enableUser")}
@@ -589,7 +634,9 @@ export default function SuperAdminPage() {
                               variant="outline"
                               disabled={u.id === me.id}
                               onClick={() =>
-                                patchUser(u.id, { isPlatformAdmin: false })
+                                void patchUser(u.id, u.name, {
+                                  isPlatformAdmin: false,
+                                })
                               }
                             >
                               {t("superAdmin.revokeAdmin")}
@@ -599,7 +646,9 @@ export default function SuperAdminPage() {
                               size="sm"
                               variant="outline"
                               onClick={() =>
-                                patchUser(u.id, { isPlatformAdmin: true })
+                                void patchUser(u.id, u.name, {
+                                  isPlatformAdmin: true,
+                                })
                               }
                             >
                               {t("superAdmin.grantAdmin")}

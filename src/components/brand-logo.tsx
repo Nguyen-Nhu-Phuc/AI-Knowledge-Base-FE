@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
+import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export function BrandLogo({
@@ -13,27 +15,19 @@ export function BrandLogo({
   return (
     <Link
       href={href}
-        className={cn(
+      className={cn(
         "group flex h-8 min-w-0 items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         compact ? "justify-center" : "gap-2.5",
         className,
       )}
-      aria-label="AI Knowledge Base"
+      aria-label={APP_NAME}
     >
-      <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand-mark.svg"
-          alt=""
-          width={32}
-          height={32}
-          className="h-full w-full object-cover"
-          draggable={false}
-        />
+      <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-[9px] shadow-sm ring-1 ring-black/5 transition-transform duration-200 group-hover:scale-[1.04] dark:ring-white/10">
+        <BrandMark />
       </span>
       {!compact ? (
-        <span className="font-display truncate text-[14px] font-semibold tracking-tight text-foreground">
-          AI Knowledge Base
+        <span className="font-display truncate text-[14px] font-semibold tracking-tight text-current">
+          {APP_NAME}
         </span>
       ) : null}
     </Link>
