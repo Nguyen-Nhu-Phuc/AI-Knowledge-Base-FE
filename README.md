@@ -1,6 +1,15 @@
+updated 2606 sha 0bd3b87f
 # AI Knowledge Base — Frontend
 
 Giao diện web (Next.js) cho **Enterprise AI Knowledge Base**.
+
+## Deploy (production)
+
+| | URL |
+|--|--|
+| **Live app** | https://tringuon-web.vercel.app |
+| **API** | https://akb-api-production.up.railway.app |
+
 
 Backend riêng: [`AI-Knowledge-Base-BE`](https://github.com/Nguyen-Nhu-Phuc/AI-Knowledge-Base-BE)
 
@@ -12,7 +21,8 @@ Backend riêng: [`AI-Knowledge-Base-BE`](https://github.com/Nguyen-Nhu-Phuc/AI-K
 - Tailwind CSS + next-themes  
 - TanStack Query + Zustand  
 - i18n (VI / EN)  
-- Chat SSE + upload presigned S3/MinIO  
+- Chat SSE
+O  
 
 ---
 
